@@ -16,12 +16,7 @@ class DotAllReadyPoked(SBExceptions):
         self.BoardOutException = BoardOutException
         self.DotAllReadyPoked = DotAllReadyPoked,
         self.DotTooClose = DotTooClose
-        
-
-        
-
-
-
+ 
 # Frontend logics
 
 
