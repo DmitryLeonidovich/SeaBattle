@@ -148,18 +148,18 @@ class Board:
 # Frontend logics
 
 
-
 # sh = Ship(1,1,3,0,3)
 #
 # for i in sh.dots():
 #     print(i.x, i.y, end=', ')
 # print()
-    
+
+
 bf = Board(battle_field=None, ships=None, visible=None, w_ship_rest=None)
 bf.board_reset()
 
 try:
-    sh = bf.add_ship(0,0, 1, 4)
+    sh = bf.add_ship(1,1, 1, 2)
 except ShipNotFitted as er:
     print(er)
 else:
@@ -195,15 +195,14 @@ for sc in sh:
             c_l.append([y - 1, x + dx])
             
     print(c_l)
+    clgood = []
     for dx in c_l:
-        print(f'Check>({dx[0]}, {dx[1]}) = ', end='')
-        if (0 <= dx[0] < bf.battle_field_size):
-            if (0 <= dx[1] < bf.battle_field_size):
-                print(' good=',dx)
-            else:
-                print('removed>', dx)
-                c_l.remove(dx)
-                print(c_l)
+        # print(f'Check>({dx[0]}, {dx[1]}) = ', end='')
+        if (0 <= dx[0] < bf.battle_field_size) and\
+           (0 <= dx[1] < bf.battle_field_size):
+            # print('   good=', dx)
+            clgood.append(dx)
+    print(clgood)
     break
 
 
