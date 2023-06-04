@@ -120,7 +120,10 @@ class Board:
                 break
         if len(sdl) == s_size:  # если корабль встал на поле, создадим контур корабля
             sdc = Board.contour(self, sdl)
-            print('Контур корабля =', sdc)
+            print('Контур корабля = ', end='')
+            for f in sdc:
+                print(Dot.get_dot_xy(f), end=' ')
+            print()
             if len(sdc) > 0:
                 return sdl
         if len(sdl) > 0:  # стираем корабль, не встает в выбранное место
@@ -139,55 +142,41 @@ class Board:
                 d_c_l.append(dt)
             return
         
-        cl_good = []
-        cl_dbl_good = []
         print("Координаты точек корабля = ", end='')
         for sc in ship_cells:
             print(Dot.get_dot_xy(sc), sc in self.dot_battle_field, end=' ')
         size = len(ship_cells)
         print('Size = ', size, end='\n')
+        
+        cl_good = []
+        cl_dbl_good = []
+        
         shp_dir = 0
         if size > 1:
             sc = iter(ship_cells)  # установление по факту ориентации корабля для 2-х и более клеточных моделей
             shp_dir = get_dir(next(sc), next(sc))  # False - горизонтально True - вертикально
+        d_c_l: Dot = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
             x = Dot.get_dot_x(sc)
             y = Dot.get_dot_y(sc)
-            if shp_dir == 0:
-                c_l = [[x - 1, y], [x + size, y]]  # для горизонтали
-                d_c_l = [Dot(x - 1, y), Dot(x + size, y)]  # для горизонтали
+            if shp_dir == 0:  # для горизонтали
+                dot_in_board(x - 1, y)
+                dot_in_board(x + size, y)
                 for dx in range(-1, size + 1):
-                    c_l.append([x + dx, y + 1])
-                    c_l.append([x + dx, y - 1])
-                    # d_c_l.append(Dot(x + dx, y + 1))
-                    # d_c_l.append(Dot(x + dx, y - 1))
                     dot_in_board(x + dx, y + 1)
                     dot_in_board(x + dx, y - 1)
             else:
-                c_l = [[y, x - 1], [y, x + size]]  # для вертикали
-                d_c_l = [Dot(y, x - 1), Dot(y, x + size)]  # для вертикали
+                dot_in_board(y, x - 1)
+                dot_in_board(y, x + size)
                 for dx in range(-1, size + 1):
-                    c_l.append([y + 1, x + dx])
-                    c_l.append([y - 1, x + dx])
-                    d_c_l.append(Dot(y + 1, x + dx))
-                    d_c_l.append(Dot(y - 1, x + dx))
-            # print(c_l)  # test вывод полного списка
-            for dx in c_l:  # формирование списка в рамках игрового поля
-                if (0 <= dx[0] < self.battle_field_size) and \
-                        (0 <= dx[1] < self.battle_field_size):
-                    cl_good.append(dx)  # вот тут можно не список координат, а список точек набить
-            
-            #dx_chain = chain.from_iterable(self.dot_battle_field)
-            for dx in d_c_l:
-                for dbf in self.dot_battle_field:
-                    d_dx = dx
-                    d_dbf = dbf
-                    if dx == dbf:
-                        cl_dbl_good.append(dx)
-                        break
-                    
-            print(cl_good)  # test вывод списка в рамках игрового поля
-            print(cl_dbl_good)  # test вывод списка в рамках игрового поля
+                    dot_in_board(y + 1, x + dx)
+                    dot_in_board(y - 1, x + dx)
+            """
+            print('         d_c_l = ', end='')
+            for f in d_c_l:
+                print(Dot.get_dot_xy(f), end=', ')
+            print()
+            """
             
             cont_dump = []
             for i in range(len(cl_good)):  # сохраняем контур на случай отката
@@ -203,7 +192,7 @@ class Board:
                 else:
                     self.battle_field[cl_good[i][1]][cl_good[i][0]] = 2
             break
-        return cl_good
+        return d_c_l
     
     def out_bf_raw(self):
         print('\u00A6' + '=' * self.battle_field_size * 3 + '\u21d2 X')
