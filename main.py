@@ -38,6 +38,43 @@ class DotTooClose(SBException):
     def __init__(self, errmsg=''):
         self.errmsg = "Sea Battle exception:" + errmsg
 
+class Dot_n:
+    def __init__(self, x, y, xy_data=None):
+        self.x = x
+        self.y = y
+        if xy_data != None:
+            self.xy_data = xy_data
+
+    def set_xy_data(self, value):
+        if isinstance(value, int):
+            self.xy_data = value
+        else:
+            raise ValueError("Должно быть целое число!")
+
+    def get_xy_data(self):
+            return self.xy_data
+
+arr_dot_n =[
+    [Dot_n(0, 0, 1), Dot_n(1, 0, 2),Dot_n(2, 0, 3)],
+    [Dot_n(0, 1, 4), Dot_n(1, 1, 5),Dot_n(2, 1, 6)],
+    [Dot_n(0, 2, 7), Dot_n(1, 2, 8),Dot_n(2, 2, 9)]
+           ]
+def show_me():
+    for y in range(3):
+        for x in range(3):
+            xyd = Dot_n.get_xy_data(arr_dot_n[y][x])
+            print(xyd, end=' ')
+        print()
+
+show_me()
+x=2
+y=1
+Dot_n.set_xy_data(arr_dot_n[y][x], 555)
+print(Dot_n.get_xy_data(arr_dot_n[y][x]))
+
+show_me()
+
+quit(0)
 
 class Dot:
     def __init__(self, x, y):
@@ -57,10 +94,10 @@ class Dot:
         return self.x == other.x and self.y == other.y
     
     def read(self, bat):
-        return bat[self.x][self.y]
+        return bat[self.y][self.x]
     
     def wright(self, bat, val=0):
-        bat[self.x][self.y] = val
+        bat[self.y][self.x] = val
         return
 
 
@@ -193,7 +230,7 @@ class Board:
         return
     
     def dot_is_free(self, xf, yf):
-        return self.battle_field[xf][yf] == 0
+        return self.battle_field[yf][xf] == 0
     
     
 free_cell_sgn = '◦'  # свободная клетка
@@ -207,8 +244,11 @@ def bat_fld_analizer(bt_in):
     for y in range(bt_in.battle_field_size):
         for x in range(bt_in.battle_field_size):
             sig = free_cell_sgn
-            cell_data = bt_in.battle_field[y][x]
-            if cell_data == 1:  # клетка с кораблем
+            #cell_data = bt_in.battle_field[y][x]
+            cell_data = Dot.read(Dot(x, y), bt_in.battle_field)
+            if x == 1 and y == 2:
+                print(f'BFA({x:2d},{y:2d})=', bin(cell_data))
+            if cell_data & 1 == 1:  # клетка с кораблем
                 if bt_in.visible:
                     sig = ship_sgn
                 else:
@@ -216,12 +256,11 @@ def bat_fld_analizer(bt_in):
                     if cell_data & 4 == 4:  # корабль подбит, показываем
                         sig = dead_ship_sgn
             else:
-                if cell_data == 2:  # клетка контур
+                if cell_data & 2 == 2:  # клетка контур
                     sig = con_ship_sgn
                     if cell_data & 4 == 4:  # в клетку был выстрел
                         sig = miss_fire_sgn
             s1 = str(bt_in.out_buf[y + 2])
-            #s1 = ' 1 abcdefjhigklmnopqrst'
             s2 = s1
             x_ind = 3 + x * 2
             s1 = s1[:x_ind]
@@ -327,38 +366,51 @@ except ShipNotFitted as er:
 else:
     pass
 
-Dot.wright(Dot(4,4), bf.battle_field, 4)
-Dot.wright(Dot(4,4), bf.battle_field, 6)
-Dot.wright(Dot(5,5), bf.battle_field, 4)
-Dot.wright(Dot(6,6), bf.battle_field, 2)
-Dot.wright(Dot(7,7), bf.battle_field, 1)
-Dot.wright(Dot(8,8), bf.battle_field, 8)
-Dot.wright(Dot(9,9), bf.battle_field, 9)
+# Dot.wright(Dot(4,4), bf.battle_field, 4)
+# Dot.wright(Dot(4,4), bf.battle_field, 6)
+# Dot.wright(Dot(5,5), bf.battle_field, 4)
+# Dot.wright(Dot(6,6), bf.battle_field, 2)
+# Dot.wright(Dot(7,7), bf.battle_field, 1)
+# Dot.wright(Dot(8,8), bf.battle_field, 8)
+# Dot.wright(Dot(9,9), bf.battle_field, 9)
 
-
+bat_fld_analizer(bf)
 bf.out_raw()
-
-
-bat_fld_analizer(bf)
 screen_update('LR')
 
-Dot.wright(Dot(1,1), bf.battle_field, 1)
+drx = 1
+dry = 1
+dr = Dot.read(Dot(drx, dry), bf.battle_field)
+print(bin(dr))
+dr = dr | 0b100
+print(bin(dr))
+Dot.wright(Dot(drx, dry), bf.battle_field, dr)
+
 ps = 0
-while ps < 10:
+while ps < 3:
     print('*', end='')
     time.sleep(1)
     ps += 1
 print()
 
+
 bat_fld_analizer(bf)
+bf.out_raw()
 screen_update('LR')
 
-Dot.wright(Dot(1,2), bf.battle_field, 1)
-ps = -1
-while ps < 10:
+drx = 1
+dry = 2
+dr = Dot.read(Dot(drx, dry), bf.battle_field)
+print(bin(dr))
+dr = dr | 0b100
+print(bin(dr))
+Dot.wright(Dot(drx, dry), bf.battle_field, dr)
+ps = 0
+while ps < 3:
     print('*', end='')
     time.sleep(1)
     ps += 1
 print()
 bat_fld_analizer(bf)
+bf.out_raw()
 screen_update('LR')
