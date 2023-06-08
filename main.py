@@ -55,24 +55,59 @@ class Dot_n:
             return self.xy_data
 
 arr_dot_n =[
-    [Dot_n(0, 0, 1), Dot_n(1, 0, 2),Dot_n(2, 0, 3)],
-    [Dot_n(0, 1, 4), Dot_n(1, 1, 5),Dot_n(2, 1, 6)],
-    [Dot_n(0, 2, 7), Dot_n(1, 2, 8),Dot_n(2, 2, 9)]
+    Dot_n(0, 0, 1), Dot_n(1, 0, 4),Dot_n(2, 0, 3),
+    Dot_n(0, 1, 4), Dot_n(1, 1, 5),Dot_n(2, 1, 6),
+    Dot_n(0, 2, 7), Dot_n(1, 2, 8),Dot_n(2, 2, 4)
            ]
 def show_me():
     for y in range(3):
         for x in range(3):
-            xyd = Dot_n.get_xy_data(arr_dot_n[y][x])
+            xyd = Dot_n.get_xy_data(arr_dot_n[y * 3 + x])
             print(xyd, end=' ')
         print()
+    return
+
+
+def show_me_by_dot():
+    dt_ind = 0
+    for dt in arr_dot_n:
+        print(Dot_n.get_xy_data(dt), end=' ')
+        dt_ind += 1
+        if dt_ind > 2:
+            print()
+            dt_ind = 0
+    return
+
 
 show_me()
-x=2
-y=1
-Dot_n.set_xy_data(arr_dot_n[y][x], 555)
-print(Dot_n.get_xy_data(arr_dot_n[y][x]))
+print()
+show_me_by_dot()
+x = 2
+y = 1
+Dot_n.set_xy_data(arr_dot_n[y * 3 + x], 555)
+print(Dot_n.get_xy_data(arr_dot_n[y * 3 + x]))
 
 show_me()
+print()
+show_me_by_dot()
+
+arr_dot_n_sel = []
+for dt in arr_dot_n:
+    if Dot_n.get_xy_data(dt) == 4:
+        arr_dot_n_sel.append(dt)
+
+
+
+print(arr_dot_n)
+print(arr_dot_n_sel)
+arr_dot_n_sel[0].xy_data = 0
+show_me()
+Dot_n.set_xy_data(arr_dot_n_sel[0], 888)
+show_me()
+
+print('Value 4 found in cells')
+for dt in arr_dot_n_sel:
+    print(dt.x, dt.y, dt.xy_data, end=' ')
 
 quit(0)
 
