@@ -1,5 +1,6 @@
-import self as self
-import winsound
+import sys
+if sys.platform == 'win32':
+    import winsound
 from random import randint
 import time
 from typing import List
@@ -11,6 +12,7 @@ CON_SHIP_SGN = '░'  # контур вокруг корабля
 DEAD_SHIP_SGN = '▚'  # в клетке подбитый корабль (или его часть)
 MISS_FIRE_SGN = 'X'  # в клетку стреляли, но промахнулись
 S_DIR_STR = ['горизонтально', 'вертикально']  # строка индикации направления корабля
+IN_BATTLE_FIELD = ['вне поля боя', 'в поле боя']  # строка индикации расположения точки
 SHIP = 0b0001  # флаг корабля в клетке
 CONT = 0b0010  # флаг корабельного контура
 FIRE = 0b0100  # флаг выстрела в клетку
@@ -170,8 +172,8 @@ class Board:
         self.ships.append(sdl)  # внесем корабль в группу кораблей поля боя
         return sdl  # вернем список точек корабля при успехе
     
-    def out(self, x, y):
-        if Dot(x, y) not in self.battle_field:
+    def out(self, o_x, o_y):
+        if Dot(o_x, o_y) not in self.battle_field:
             raise BoardOutException('Координаты за пределами поля!')
         return
     
@@ -191,16 +193,16 @@ class Board:
         
         print("Координаты точек корабля = ", end='')  # для настойки алгоритма
         for sc in ship_cells:
-            print(Dot.get_xy(sc), '=', Dot.get_status(sc), sc in self.battle_field, end=' ')
-        print('Size = ', size, end='\n')
-        
+            print(Dot.get_xy(sc), '=', Dot.get_status(sc), IN_BATTLE_FIELD[sc in self.battle_field], end=' ')
         shp_dir = 0  # False - горизонтально по умолчанию для одноклеточных кораблей
         if size > 1:
             sc = iter(ship_cells)  # установление по факту ориентации корабля для 2-х и более клеточных моделей
             shp_dir = get_dir(next(sc), next(sc))  # False - горизонтально True - вертикально
+        print(', расположен', S_DIR_STR[shp_dir], ', размер =', size, end='\n')
         d_c_l = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
-            x = sc.x
+            # x = sc.x *******************************************************************************************
+            x = Dot.get_x(sc)
             y = Dot.get_y(sc)
             if shp_dir == 0:  # для горизонтали
                 dot_in_board(x - 1, y)
@@ -253,7 +255,6 @@ class Board:
                 sig = FREE_CELL_SGN  # по умолчанию - свободное поле
                 bf_pos = x + y * self.battle_field_size
                 cell = self.battle_field[bf_pos]
-                #print(self.battle_field)
                 if cell.status & 1 == 1:  # клетка с кораблем
                     if cell.status & 4 == 4:  # корабль подбит
                         sig = DEAD_SHIP_SGN  # показываем подбитый
@@ -323,7 +324,6 @@ class User(Player):
             x, y = int(x), int(y)
             return Dot(x - 1, y - 1)
 
-    
 
 # unclassified functions
 def direction(s_dir=0):
@@ -340,14 +340,13 @@ def get_dir(d1, d2):
     return Dot.get_x(d1) == Dot.get_x(d2)
 
 
-# Internal logic
-
- 
-# Frontend logics
-
 def pew(snd='pew.wav'):
-    winsound.PlaySound(snd, winsound.SND_FILENAME)
-    return
+    try:
+        winsound.PlaySound(snd, winsound.SND_FILENAME)
+    except NameError:
+        pass
+    else:
+        return
 
 
 def pause(t):
@@ -358,7 +357,6 @@ def pause(t):
         ps += 1
     print()
     return
-
 
 
 class Game:
@@ -373,9 +371,7 @@ class Game:
         self.random_board(self.bf)
 
     def random_board(self, bd):
-        print('-------')
-        print(self.bf, self.uf)
-        print(bd)
+        print('\nРасстановка кораблей на поле', bd.battle_title)
         while True:
             bd.board_reset()
             ship_type = [3, 2, 2, 1, 1, 1, 1]
@@ -385,7 +381,9 @@ class Game:
                 for st in ship_type:
                     while True:
                         steps += 1
-                        bd_set = [randint(0, bd.battle_field_size-1), randint(0, bd.battle_field_size-1), randint(0, 1), st]
+                        bd_set = [randint(0, bd.battle_field_size-1),
+                                  randint(0, bd.battle_field_size-1),
+                                  randint(0, 1), st]
                         try:
                             bd.add_ship(randint(0, bd.battle_field_size-1),
                                         randint(0, bd.battle_field_size-1), randint(0, 1), st)
@@ -398,10 +396,13 @@ class Game:
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
+                            pew()  # ============================================
+                            pew()  # ============================================
                             break
                     if not att1:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
                 if att1:
+                    print('Поле сформировано за', steps, 'шагов.')
                     return  # если цикл по кораблям закончился традиционно - выходим, все они установлены
                 pass  # нет, цикл еще с перспективой - берем следующий корабль на размещение
             pass  # сюда попадают при необходимости сбросить поле
@@ -469,6 +470,7 @@ class Game:
     
     def start(self):
         self.greetings()
+        pew()
         self.loop()
       
         
