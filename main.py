@@ -27,7 +27,6 @@ class SBException(Exception):
 
 class ShipNotFitted(SBException):
     def __init__(self, errmsg=''):
-        pew()
         self.errmsg = "Sea Battle exception:" + errmsg
         
         
@@ -144,10 +143,12 @@ class Board:
         return
         
     def add_ship(self, sp_x, sp_y, s_dir, s_size):
-        print('Поле', self.battle_title, end=' ')
-        print(f'Запрос на корабль: X={sp_x+1:2d} Y={sp_y+1:2d}', S_DIR_STR[s_dir], "размер=", s_size)
         dx = direction(s_dir)[0]
         dy = direction(s_dir)[1]
+        if sp_x + s_size * dx > self.battle_field_size or sp_y + s_size * dy > self.battle_field_size:
+            raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
+        # print('Поле', self.battle_title, end=' ')
+        # print(f'Запрос на корабль: X={sp_x+1:2d} Y={sp_y+1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
@@ -159,7 +160,7 @@ class Board:
             raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
         sdc = Board.contour(self, sdl)  # создадим контур корабля
         for d_dot in sdc:  # проверим на близкие корабли по контуру
-            if Dot.get_status(d_dot) & 1:  # точка на контуре - другой корабль
+            if Dot.get_status(d_dot) & SHIP:  # точка на контуре - другой корабль
                 raise ShipNotFitted(f'В точку [{sp_x + 1},{sp_y + 1}] установить корабль не удалось!')
         if self.visible:
             for sc in sdc:  # прорисуем контур корабля
@@ -372,6 +373,9 @@ class Game:
         self.random_board(self.bf)
 
     def random_board(self, bd):
+        print('-------')
+        print(self.bf, self.uf)
+        print(bd)
         while True:
             bd.board_reset()
             ship_type = [3, 2, 2, 1, 1, 1, 1]
@@ -381,10 +385,16 @@ class Game:
                 for st in ship_type:
                     while True:
                         steps += 1
+                        bd_set = [randint(0, bd.battle_field_size-1), randint(0, bd.battle_field_size-1), randint(0, 1), st]
                         try:
-                            #bd.add_ship(randint(0, bd.battle.size), randint(0, bd.battle.size), randint(0, 1), st)
+                            bd.add_ship(randint(0, bd.battle_field_size-1),
+                                        randint(0, bd.battle_field_size-1), randint(0, 1), st)
+                            bd.out_raw()
+                            print('Good=', bd_set)
                             break  # корабль встал удачно, берем следующий, если есть
                         except ShipNotFitted:
+                            bd.out_raw()
+                            print(' Bad=', bd_set)
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
@@ -397,7 +407,6 @@ class Game:
             pass  # сюда попадают при необходимости сбросить поле
         pass  # отсюда сброс поля и делают
         # сюда никогда не попадают
-    
     
     def screen_update(self, bf, uf, position='L'):
         def l_r_out():  # вывод левого и правого игровых полей
@@ -438,14 +447,12 @@ class Game:
             l_out()
         elif position == 'R':
             r_out()
-        elif position == 'LR':
+        elif position == 'LR' or position == 'RL':
             l_r_out()
         else:
             Board.out_raw(bf)
             Board.out_raw(uf)
         return
-    
-    
     
     def greetings(self):
         print("Hello!!! This is Sea Battle.")
@@ -467,6 +474,6 @@ class Game:
         
 game = Game()
 game.start()
-game.screen_update(game.bf, game.uf, "L")
+game.screen_update(game.bf, game.uf, "RL")
 print("Доброго вечера, мы со Skill Factory.")
 quit(0)
