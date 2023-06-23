@@ -145,12 +145,11 @@ class Board:
         return
         
     def add_ship(self, sp_x, sp_y, s_dir, s_size):
-        dx = direction(s_dir)[0]
-        dy = direction(s_dir)[1]
+        dx, dy = direction(s_dir)
         if sp_x + s_size * dx > self.battle_field_size or sp_y + s_size * dy > self.battle_field_size:
             raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
-        # print('Поле', self.battle_title, end=' ')
-        # print(f'Запрос на корабль: X={sp_x+1:2d} Y={sp_y+1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
+        print('Поле', self.battle_title, end=' ')
+        print(f'Запрос на корабль: X={sp_x+1:2d} Y={sp_y+1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
@@ -381,12 +380,16 @@ class Game:
                 for st in ship_type:
                     while True:
                         steps += 1
-                        bd_set = [randint(0, bd.battle_field_size-1),
-                                  randint(0, bd.battle_field_size-1),
-                                  randint(0, 1), st]
+                        bd_set_x = randint(0, bd.battle_field_size-1)
+                        bd_set_y = randint(0, bd.battle_field_size-1)
+                        bd_set_d = randint(0, 99)
+                        if bd_set_d > 49:
+                            bd_set_d = 1
+                        else:
+                            bd_set_d = 0
+                        bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
                         try:
-                            bd.add_ship(randint(0, bd.battle_field_size-1),
-                                        randint(0, bd.battle_field_size-1), randint(0, 1), st)
+                            bd.add_ship(bd_set_x, bd_set_y, bd_set_d, st)
                             bd.out_raw()
                             print('Good=', bd_set)
                             break  # корабль встал удачно, берем следующий, если есть
@@ -464,7 +467,7 @@ class Game:
             self.bf.bat_fld_analyzer()
             self.uf.bat_fld_analyzer()
             self.screen_update(self.bf, self.uf, "LR")
-            pause(3)
+            pause(1)
             curr_move += 1
         return
     
@@ -476,6 +479,12 @@ class Game:
         
 game = Game()
 game.start()
+game.bf.board_reset()
+game.bf.bat_fld_analyzer()
 game.screen_update(game.bf, game.uf, "RL")
+game.bf.add_ship(6, 4, 1, 4)
+game.bf.bat_fld_analyzer()
+game.screen_update(game.bf, game.uf, "RL")
+game.screen_update(game.bf, game.uf, "==")
 print("Доброго вечера, мы со Skill Factory.")
 quit(0)
