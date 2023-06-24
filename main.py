@@ -201,20 +201,12 @@ class Board:
         print(', расположен', S_DIR_STR[shp_dir], ', размер =', size, end='\n')
         d_c_l = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
-            # x = sc.x *******************************************************************************************
             x_c, y_c = Dot.get_xy(sc)
-            if shp_dir == 0:  # для горизонтали
-                dot_in_board(x_c - 1, y_c)
-                dot_in_board(x_c + size, y_c)
-                for d_s in range(-1, size + 1):
-                    dot_in_board(x_c + d_s, y_c + 1)
-                    dot_in_board(x_c + d_s, y_c - 1)
-            else:  # для вертикали
-                dot_in_board(x_c, y_c - 1)
-                dot_in_board(x_c, y_c + size)
-                for d_s in range(-1, size + 1):
-                    dot_in_board(x_c + 1, y_c + d_s)
-                    dot_in_board(x_c - 1, y_c + d_s )
+            dot_in_board(x_c - 1 + shp_dir, y_c - 1 * shp_dir)
+            dot_in_board(x_c + size * (1 - shp_dir), y_c + size * shp_dir)
+            for d_s in range(-1, size + 1):
+                dot_in_board(x_c + shp_dir + d_s * (1 - shp_dir), y_c + 1 - shp_dir + d_s * shp_dir)
+                dot_in_board(x_c - shp_dir + d_s * (1 - shp_dir), y_c - 1 + shp_dir + d_s * shp_dir)
             break  # достаточно одного прохода
         return d_c_l
     
