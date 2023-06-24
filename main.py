@@ -147,9 +147,9 @@ class Board:
     def add_ship(self, sp_x, sp_y, s_dir, s_size):
         dx, dy = direction(s_dir)
         if sp_x + s_size * dx > self.battle_field_size or sp_y + s_size * dy > self.battle_field_size:
-            raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
+            raise ShipNotFitted(f'Из точки [{sp_x},{sp_y}] корабль расположить не получается!')
         print('Поле', self.battle_title, end=' ')
-        print(f'Запрос на корабль: X={sp_x+1:2d} Y={sp_y+1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
+        print(f'Запрос на корабль: X={sp_x:2d} Y={sp_y:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
@@ -158,11 +158,11 @@ class Board:
             else:
                 break
         if len(sdl) != s_size:  # если корабль НЕ встал на поле
-            raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
+            raise ShipNotFitted(f'Из точки [{sp_x},{sp_y}] корабль расположить не получается!')
         sdc = Board.contour(self, sdl)  # создадим контур корабля
         for d_dot in sdc:  # проверим на близкие корабли по контуру
             if Dot.get_status(d_dot) & SHIP:  # точка на контуре - другой корабль
-                raise ShipNotFitted(f'В точку [{sp_x + 1},{sp_y + 1}] установить корабль не удалось!')
+                raise ShipNotFitted(f'В точку [{sp_x},{sp_y}] установить корабль не удалось!')
         if self.visible:
             for sc in sdc:  # прорисуем контур корабля
                 sc.status = sc.status | CONT
@@ -186,6 +186,7 @@ class Board:
             else:
                 dt = self.battle_field[xc + yc * self.battle_field_size]
                 d_c_l.append(dt)
+                print('Поле', self.battle_title,'DotXY=', Dot.get_xy(dt), 'DotStatus=', Dot.get_status(dt))
             return
         
         size = len(ship_cells)
@@ -201,20 +202,19 @@ class Board:
         d_c_l = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
             # x = sc.x *******************************************************************************************
-            x = Dot.get_x(sc)
-            y = Dot.get_y(sc)
+            x_c, y_c = Dot.get_xy(sc)
             if shp_dir == 0:  # для горизонтали
-                dot_in_board(x - 1, y)
-                dot_in_board(x + size, y)
-                for dx in range(-1, size + 1):
-                    dot_in_board(x + dx, y + 1)
-                    dot_in_board(x + dx, y - 1)
+                dot_in_board(x_c - 1, y_c)
+                dot_in_board(x_c + size, y_c)
+                for d_s in range(-1, size + 1):
+                    dot_in_board(x_c + d_s, y_c + 1)
+                    dot_in_board(x_c + d_s, y_c - 1)
             else:  # для вертикали
-                dot_in_board(y, x - 1)
-                dot_in_board(y, x + size)
-                for dx in range(-1, size + 1):
-                    dot_in_board(y + 1, x + dx)
-                    dot_in_board(y - 1, x + dx)
+                dot_in_board(x_c, y_c - 1)
+                dot_in_board(x_c, y_c + size)
+                for d_s in range(-1, size + 1):
+                    dot_in_board(x_c + 1, y_c + d_s)
+                    dot_in_board(x_c - 1, y_c + d_s )
             break  # достаточно одного прохода
         return d_c_l
     
@@ -479,12 +479,20 @@ class Game:
         
 game = Game()
 game.start()
+game.bf.visible = False
+game.screen_update(game.bf, game.uf, "RL")
 game.bf.board_reset()
 game.bf.bat_fld_analyzer()
 game.screen_update(game.bf, game.uf, "RL")
+
+print("=" * 80)
 game.bf.add_ship(6, 4, 1, 4)
 game.bf.bat_fld_analyzer()
-game.screen_update(game.bf, game.uf, "RL")
+game.screen_update(game.bf, game.uf, "L")
+game.bf.add_ship(1, 6, 0, 4)
+game.bf.bat_fld_analyzer()
+game.screen_update(game.bf, game.uf, "L")
+
 game.screen_update(game.bf, game.uf, "==")
 print("Доброго вечера, мы со Skill Factory.")
 quit(0)
