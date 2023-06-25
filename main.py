@@ -90,8 +90,8 @@ class Ship:
         self.rest_of_cells = rest_of_cells  # остаток жизни корабля
          
     def dots(self):
-        dx = direction(self.dir_vec)[0]
-        dy = direction(self.dir_vec)[1]
+        dx, dy = direction(self.dir_vec)
+        # dy = direction(self.dir_vec)[1]
         sd_l = []
         for i in range(self.size):
             sd_l.append(Dot(self.shp_x + i * dx, self.shp_y + i * dy))
@@ -147,9 +147,9 @@ class Board:
     def add_ship(self, sp_x, sp_y, s_dir, s_size):
         dx, dy = direction(s_dir)
         if sp_x + s_size * dx > self.battle_field_size or sp_y + s_size * dy > self.battle_field_size:
-            raise ShipNotFitted(f'Из точки [{sp_x},{sp_y}] корабль расположить не получается!')
-        print('Поле', self.battle_title, end=' ')
-        print(f'Запрос на корабль: X={sp_x:2d} Y={sp_y:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
+            raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
+        # print('Поле', self.battle_title, end=' ')
+        # print(f'Запрос на корабль: X={sp_x + 1:2d} Y={sp_y + 1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
@@ -158,11 +158,11 @@ class Board:
             else:
                 break
         if len(sdl) != s_size:  # если корабль НЕ встал на поле
-            raise ShipNotFitted(f'Из точки [{sp_x},{sp_y}] корабль расположить не получается!')
+            raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
         sdc = Board.contour(self, sdl)  # создадим контур корабля
         for d_dot in sdc:  # проверим на близкие корабли по контуру
             if Dot.get_status(d_dot) & SHIP:  # точка на контуре - другой корабль
-                raise ShipNotFitted(f'В точку [{sp_x},{sp_y}] установить корабль не удалось!')
+                raise ShipNotFitted(f'В точку [{sp_x + 1},{sp_y + 1}] установить корабль не удалось!')
         if self.visible:
             for sc in sdc:  # прорисуем контур корабля
                 sc.status = sc.status | CONT
@@ -186,19 +186,19 @@ class Board:
             else:
                 dt = self.battle_field[xc + yc * self.battle_field_size]
                 d_c_l.append(dt)
-                print('Поле', self.battle_title,'DotXY=', Dot.get_xy(dt), 'DotStatus=', Dot.get_status(dt))
+                # print('Поле', self.battle_title,'DotXY=', Dot.get_xy(dt), 'DotStatus=', Dot.get_status(dt))
             return
         
         size = len(ship_cells)
         
-        print("Координаты точек корабля = ", end='')  # для настойки алгоритма
-        for sc in ship_cells:
-            print(Dot.get_xy(sc), '=', Dot.get_status(sc), IN_BATTLE_FIELD[sc in self.battle_field], end=' ')
+        # print("Координаты точек корабля = ", end='')  # для настойки алгоритма
+        # for sc in ship_cells:
+        #     print(Dot.get_xy(sc), '=', Dot.get_status(sc), IN_BATTLE_FIELD[sc in self.battle_field], end=' ')
         shp_dir = 0  # False - горизонтально по умолчанию для одноклеточных кораблей
         if size > 1:
             sc = iter(ship_cells)  # установление по факту ориентации корабля для 2-х и более клеточных моделей
             shp_dir = get_dir(next(sc), next(sc))  # False - горизонтально True - вертикально
-        print(', расположен', S_DIR_STR[shp_dir], ', размер =', size, end='\n')
+        # print(', расположен', S_DIR_STR[shp_dir], ', размер =', size, end='\n')
         d_c_l = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
             x_c, y_c = Dot.get_xy(sc)
@@ -353,7 +353,7 @@ def pause(t):
 class Game:
     def __init__(self):
         self.bf = Board(battle_field=None, out_buf=None,
-                        ships=None, visible=True, w_ship_rest=None, battle_title='AI bot', battle_field_size=10)
+                        ships=None, visible=True, w_ship_rest=None, battle_title='AI bot', battle_field_size=6)
         self.uf = Board(battle_field=None, out_buf=None,
                         ships=None, visible=True, w_ship_rest=None, battle_title='User', battle_field_size=10)
         self.guru = AI(self.bf.battle_field, self.uf.battle_field)
@@ -362,14 +362,20 @@ class Game:
         self.random_board(self.bf)
 
     def random_board(self, bd):
-        print('\nРасстановка кораблей на поле', bd.battle_title)
+        # print('\nРасстановка кораблей на поле', bd.battle_title)
         while True:
             bd.board_reset()
-            ship_type = [3, 2, 2, 1, 1, 1, 1]
+            ship_type = [
+                        [3, 2, 2, 1, 1, 1, 1],  # 6 x 6
+                        [3, 3, 2, 2, 1, 1, 1, 1],  # 7 x 7
+                        [4, 3, 3, 2, 2, 1, 1, 1, 1],  # 8 x 8
+                        [4, 3, 3, 2, 2, 2, 1, 1, 1, 1],  # 9 x 9
+                        [4, 4, 3, 3, 2, 2, 1, 1, 1, 1, 1],  # 10 x 10
+                        ]
             att1 = True
             while att1:
                 steps = 0
-                for st in ship_type:
+                for st in ship_type[bd.battle_field_size - 6]:
                     while True:
                         steps += 1
                         bd_set_x = randint(0, bd.battle_field_size-1)
@@ -382,12 +388,12 @@ class Game:
                         bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
                         try:
                             bd.add_ship(bd_set_x, bd_set_y, bd_set_d, st)
-                            bd.out_raw()
-                            print('Good=', bd_set)
+                            # bd.out_raw()
+                            # print('Good=', bd_set)
                             break  # корабль встал удачно, берем следующий, если есть
                         except ShipNotFitted:
-                            bd.out_raw()
-                            print(' Bad=', bd_set)
+                            # bd.out_raw()
+                            # print(' Bad=', bd_set)
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
@@ -397,7 +403,7 @@ class Game:
                     if not att1:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
                 if att1:
-                    print('Поле сформировано за', steps, 'шагов.')
+                    # print('Поле сформировано за', steps, 'шагов.')
                     return  # если цикл по кораблям закончился традиционно - выходим, все они установлены
                 pass  # нет, цикл еще с перспективой - берем следующий корабль на размещение
             pass  # сюда попадают при необходимости сбросить поле
@@ -459,7 +465,13 @@ class Game:
             self.bf.bat_fld_analyzer()
             self.uf.bat_fld_analyzer()
             self.screen_update(self.bf, self.uf, "LR")
-            pause(1)
+            if curr_move % 2 == 0:
+                print("Ваш выстрел.")
+                one_more = self.nemo.move()
+            else:
+                pause(3)
+                print("Стреляет компьютер.")
+            
             curr_move += 1
         return
     
@@ -476,6 +488,7 @@ game.screen_update(game.bf, game.uf, "RL")
 game.bf.board_reset()
 game.bf.bat_fld_analyzer()
 game.screen_update(game.bf, game.uf, "RL")
+quit(0)
 
 print("=" * 80)
 game.bf.add_ship(6, 4, 1, 4)
