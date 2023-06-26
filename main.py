@@ -46,10 +46,10 @@ def pew(snd='pew.wav'):
 def pause(t):
     ps = 0
     while ps < t:
-        print('*', end='')
+        print('>', end='')
         time.sleep(1)
         ps += 1
-    print()
+    print('', end='')
     return
 
 
@@ -324,7 +324,7 @@ class Player:
 class AI(Player):
     def ask(self):
         dum = []
-        for i in self.enemy_board.battle_field:  # создание списка точек для удара на поле игрока
+        for i in self.enemy_board.battle_field:  # создание списка точек для удара на поле оппонента
             if i.status & (FIRE + C_DS) == 0:
                 dum.append(i)
         if len(dum) < 1:
@@ -473,8 +473,8 @@ class Game:
                 print("Ваш выстрел.")
                 repeat = self.nemo.move()
             else:
-                pause(1)
-                print("Стреляет компьютер.")
+                print("Стреляет компьютер.", end='')
+                pause(3)
                 repeat = self.guru.move()
             if repeat:
                 curr_move -= 1
