@@ -19,6 +19,40 @@ FIRE = 0b0100  # флаг выстрела в клетку
 C_DS = 0b1000  # флаг контура подбитого корабля
 
 
+# unclassified functions
+def direction(s_dir=0):
+    if s_dir == 0:
+        dx = 1
+        dy = 0
+    else:
+        dx = 0
+        dy = 1
+    return [dx, dy]
+
+
+def get_dir(d1, d2):
+    return Dot.get_x(d1) == Dot.get_x(d2)
+
+
+def pew(snd='pew.wav'):
+    try:
+        winsound.PlaySound(snd, winsound.SND_FILENAME)
+    except NameError:
+        pass
+    else:
+        return
+
+
+def pause(t):
+    ps = 0
+    while ps < t:
+        print('*', end='')
+        time.sleep(1)
+        ps += 1
+    print()
+    return
+
+
 # Exceptions block
 
 
@@ -231,7 +265,7 @@ class Board:
         if self.dot_with_flags(x, y, FIRE):
             raise DotAllReadyPoked('Сюда уже стреляли!')
         if self.dot_with_flags(x, y, SHIP):  # попали в корабль
-            dt.status = dt.status | SHIP  # отмечаем, что в клетке корабль
+            dt.status = dt.status | FIRE  # отмечаем, что в клетке подбит корабль
             return True
         dt.status = dt.status | FIRE  # отмечаем, что в клетку произведен выстрел
         return False
@@ -278,25 +312,27 @@ class Player:
         while True:
             try:
                 xy_coord = self.ask()
-                hit_ok = self.enemy_board.shot(self, xy_coord.x, xy_coord.y)
+                # print('Выстрел в', xy_coord.x + 1, xy_coord.y + 1)
+                hit_ok = Board.shot(self.enemy_board, xy_coord.x, xy_coord.y)
+                return hit_ok
             except BoardOutException as e:
                 print(e)
-                continue
-            if hit_ok:
-                continue
-        return
-        
+            except DotAllReadyPoked as e:
+                print(e)
+                
         
 class AI(Player):
-    def ask(self, ):
+    def ask(self):
         dum = []
         for i in self.enemy_board.battle_field:  # создание списка точек для удара на поле игрока
             if i.status & (FIRE + C_DS) == 0:
                 dum.append(i)
         if len(dum) < 1:
             raise BoardOutException("Нет места для выстрела!!!")
-        d_ind = randint(0, len(dum))  # выбор свободной точки для выстрела в поле врага
-        d = dum[d_ind]
+        
+        # выбор точки для выстрела в поле врага
+        d_ind = randint(0, len(dum))
+        d = self.enemy_board.battle_field[d_ind]
         print(f"Удар в точку: {d.x + 1} {d.y + 1}")
         return d
 
@@ -316,38 +352,6 @@ class User(Player):
             return Dot(x - 1, y - 1)
 
 
-# unclassified functions
-def direction(s_dir=0):
-    if s_dir == 0:
-        dx = 1
-        dy = 0
-    else:
-        dx = 0
-        dy = 1
-    return [dx, dy]
-    
-    
-def get_dir(d1, d2):
-    return Dot.get_x(d1) == Dot.get_x(d2)
-
-
-def pew(snd='pew.wav'):
-    try:
-        winsound.PlaySound(snd, winsound.SND_FILENAME)
-    except NameError:
-        pass
-    else:
-        return
-
-
-def pause(t):
-    ps = 0
-    while ps < t:
-        print('*', end='')
-        time.sleep(1)
-        ps += 1
-    print()
-    return
 
 
 class Game:
@@ -356,20 +360,20 @@ class Game:
                         ships=None, visible=True, w_ship_rest=None, battle_title='AI bot', battle_field_size=6)
         self.uf = Board(battle_field=None, out_buf=None,
                         ships=None, visible=True, w_ship_rest=None, battle_title='User', battle_field_size=10)
-        self.guru = AI(self.bf.battle_field, self.uf.battle_field)
-        self.nemo = User(self.uf.battle_field, self.bf.battle_field)
         self.random_board(self.uf)
         self.random_board(self.bf)
+        self.guru = AI(self.bf, self.uf)
+        self.nemo = User(self.uf, self.bf)
 
     def random_board(self, bd):
         # print('\nРасстановка кораблей на поле', bd.battle_title)
         while True:
             bd.board_reset()
             ship_type = [
-                        [3, 2, 2, 1, 1, 1, 1],  # 6 x 6
-                        [3, 3, 2, 2, 1, 1, 1, 1],  # 7 x 7
-                        [4, 3, 3, 2, 2, 1, 1, 1, 1],  # 8 x 8
-                        [4, 3, 3, 2, 2, 2, 1, 1, 1, 1],  # 9 x 9
+                        [3, 2, 2, 1, 1, 1, 1],              # 6 x 6
+                        [3, 3, 2, 2, 1, 1, 1, 1],           # 7 x 7
+                        [4, 3, 3, 2, 2, 1, 1, 1, 1],        # 8 x 8
+                        [4, 3, 3, 2, 2, 2, 1, 1, 1, 1],     # 9 x 9
                         [4, 4, 3, 3, 2, 2, 1, 1, 1, 1, 1],  # 10 x 10
                         ]
             att1 = True
@@ -461,17 +465,19 @@ class Game:
         
     def loop(self):
         curr_move = 0  # ноль - игрок, 1 - компьютер
-        while True and curr_move < 1:
+        while True and curr_move < 100:
             self.bf.bat_fld_analyzer()
             self.uf.bat_fld_analyzer()
             self.screen_update(self.bf, self.uf, "LR")
             if curr_move % 2 == 0:
                 print("Ваш выстрел.")
-                one_more = self.nemo.move()
+                repeat = self.nemo.move()
             else:
-                pause(3)
+                pause(1)
                 print("Стреляет компьютер.")
-            
+                repeat = self.guru.move()
+            if repeat:
+                curr_move -= 1
             curr_move += 1
         return
     
@@ -483,6 +489,8 @@ class Game:
         
 game = Game()
 game.start()
+quit(0)
+
 game.bf.visible = False
 game.screen_update(game.bf, game.uf, "RL")
 game.bf.board_reset()
