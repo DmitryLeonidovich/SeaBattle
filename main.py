@@ -41,6 +41,15 @@ def pew(snd='pew.wav'):
         pass
     else:
         return
+    
+    
+def ws_ply(snd):
+    try:
+        winsound.PlaySound(snd, winsound.SND_ALIAS)
+    except (RuntimeError, NameError):
+        pass
+    else:
+        return
 
 
 def pause(t):
@@ -125,7 +134,6 @@ class Ship:
          
     def dots(self):
         dx, dy = direction(self.dir_vec)
-        # dy = direction(self.dir_vec)[1]
         sd_l = []
         for i in range(self.size):
             sd_l.append(Dot(self.shp_x + i * dx, self.shp_y + i * dy))
@@ -133,12 +141,15 @@ class Ship:
 
 
 class Board:
-    def __init__(self, battle_field, out_buf, ships, visible, w_ship_rest, battle_title='', battle_field_size=6):
+    def __init__(self, battle_field, out_buf, ships, shape, visible,
+                 life_rest, life_count, battle_title='', battle_field_size=6):
         self.battle_field = battle_field  # одномерный массив состояния игрового поля
         self.out_buf = out_buf  # массив строк для вывода поля в консоль
         self.ships = ships  # список кораблей на доске
+        self.shape = shape  # список контуров кораблей на доске
         self.visible = visible  # признак видимости кораблей при выводе содержимого поля
-        self.w_ship_rest = w_ship_rest  # число оставшихся клеток живых кораблей
+        self.life_rest = life_rest  # число оставшихся клеток живых кораблей
+        self.life_count = life_count  # общее число клеток кораблей
         self.battle_title = battle_title  # заголовок окна "Поле "______
         self.battle_field_size = battle_field_size  # размерность игрового поля
        
@@ -166,8 +177,10 @@ class Board:
                 self.battle_field.append(Dot(x, y, 0))
         self.out_buf = _out_buf
         self.ships = []
+        self.shape = []
         self.visible = True
-        self.w_ship_rest = 0
+        self.life_rest = 0
+        self.life_count = 0
         s = self.battle_title
         if len(s) > 0:
             if len(s) > 6:
@@ -187,10 +200,10 @@ class Board:
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
-            if d_dot.status == 0:  # точка на поле свободна
+            if d_dot.status & SHIP == 0:  # точка на поле свободна
                 sdl.append(d_dot)  # в список точек корабля
             else:
-                break
+                break  # прерываем перебор точек под корабль
         if len(sdl) != s_size:  # если корабль НЕ встал на поле
             raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
         sdc = Board.contour(self, sdl)  # создадим контур корабля
@@ -200,8 +213,15 @@ class Board:
         if self.visible:
             for sc in sdc:  # прорисуем контур корабля
                 sc.status = sc.status | CONT
+        self.shape.append(sdc)  # внесем контур корабля в группу контуров кораблей поля боя
+        sc_0 = 0
         for sc in sdl:  # прорисуем корабль
-            sc.status = SHIP
+            if sc_0 == 0:
+                sc.status = SHIP + (len(sdl) << 4)  # в первую точку корабля добавляем его размер
+                # print(f'Точка [{sc_0}] ({sc.x + 1},{sc.y + 1}) статус={bin(sc.status)} ')
+            else:
+                sc.status = SHIP
+            sc_0 += 1
         self.ships.append(sdl)  # внесем корабль в группу кораблей поля боя
         return sdl  # вернем список точек корабля при успехе
     
@@ -266,6 +286,29 @@ class Board:
             raise DotAllReadyPoked('Сюда уже стреляли!')
         if self.dot_with_flags(x, y, SHIP):  # попали в корабль
             dt.status = dt.status | FIRE  # отмечаем, что в клетке подбит корабль
+            ship_pos_in_list = 0  # установка индекса на первый корабль в списке
+            ddt_0_life = 0  # объявление переменной
+            ddt_0_dot = dt  # объявление переменной
+            for c_ship in self.ships:
+                if dt in c_ship:
+                    print('Попадание в корабль [ ', ship_pos_in_list + 1, end=']')
+                    
+                    for c_ship_dot_pos in range(len(c_ship)):
+                        ddt = c_ship[c_ship_dot_pos]
+                        print('-{', ddt.x, ddt.y, ddt.status, end='}')
+                        
+                    ddt_0_dot = c_ship[0]
+                    ddt_0_life = (c_ship[0].status & 0xF0) >> 4
+                    print(' было клеток {', ddt_0_life, ' }')
+                    
+                    break  # заканчиваем перебор, корабль найден
+                ship_pos_in_list += 1
+            ddt_0_life -= 1  # уменьшаем число клеток корабля
+            ddt_0_life = ddt_0_life << 4
+            ddt_0_dot.status = (ddt_0_dot.status & 0x0F) + ddt_0_life
+            self.life_rest -= 1  # уменьшаем число "жизней" кораблей
+            print('Попадание в корабль [', ship_pos_in_list + 1, '] стало клеток {', ddt_0_life >> 4, '}', ddt_0_dot.status,
+                  self.life_count, self.life_rest, '}')
             return True
         dt.status = dt.status | FIRE  # отмечаем, что в клетку произведен выстрел
         return False
@@ -280,15 +323,15 @@ class Board:
                 sig = FREE_CELL_SGN  # по умолчанию - свободное поле
                 bf_pos = x + y * self.battle_field_size
                 cell = self.battle_field[bf_pos]
-                if cell.status & 1 == 1:  # клетка с кораблем
-                    if cell.status & 4 == 4:  # корабль подбит
+                if cell.status & SHIP == SHIP:  # клетка с кораблем
+                    if cell.status & FIRE == FIRE:  # корабль подбит
                         sig = DEAD_SHIP_SGN  # показываем подбитый
                     elif self.visible:
                         sig = SHIP_SGN  # показываем целый
                 else:
-                    if cell.status & 4 == 4:  # в клетку был выстрел
+                    if cell.status & FIRE == FIRE:  # в клетку был выстрел
                         sig = MISS_FIRE_SGN  # показываем выстрел
-                    elif cell.status & 8 == 8:  # клетка - контур подбитого корабля
+                    elif cell.status & C_DS == C_DS:  # клетка - контур подбитого корабля
                         sig = CON_SHIP_SGN  # показываем контур
                 s1 = str(self.out_buf[y + 2])
                 s2 = s1
@@ -357,9 +400,11 @@ class User(Player):
 class Game:
     def __init__(self):
         self.bf = Board(battle_field=None, out_buf=None,
-                        ships=None, visible=True, w_ship_rest=None, battle_title='AI bot', battle_field_size=6)
+                        ships=None, shape=None, visible=True, life_rest=None, life_count=None,
+                        battle_title='AI bot', battle_field_size=6)
         self.uf = Board(battle_field=None, out_buf=None,
-                        ships=None, visible=True, w_ship_rest=None, battle_title='User', battle_field_size=10)
+                        ships=None, shape=None, visible=True, life_rest=None, life_count=None,
+                        battle_title='User', battle_field_size=10)
         self.random_board(self.uf)
         self.random_board(self.bf)
         self.guru = AI(self.bf, self.uf)
@@ -392,6 +437,8 @@ class Game:
                         bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
                         try:
                             bd.add_ship(bd_set_x, bd_set_y, bd_set_d, st)
+                            bd.life_count += st  # добавляем клетки в "жизни" кораблей
+                            bd.life_rest += st   # добавляем клетки в "жизни" кораблей
                             # bd.out_raw()
                             # print('Good=', bd_set)
                             break  # корабль встал удачно, берем следующий, если есть
@@ -401,13 +448,13 @@ class Game:
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
-                            pew()  # ============================================
-                            pew()  # ============================================
+                            ws_ply('SystemHand')  # ============================================
                             break
                     if not att1:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
                 if att1:
                     # print('Поле сформировано за', steps, 'шагов.')
+                    
                     return  # если цикл по кораблям закончился традиционно - выходим, все они установлены
                 pass  # нет, цикл еще с перспективой - берем следующий корабль на размещение
             pass  # сюда попадают при необходимости сбросить поле
@@ -486,8 +533,14 @@ class Game:
         pew()
         self.loop()
       
-        
+
+# ws_ply("SystemAsterisk")
+# ws_ply("SystemExclamation")
+# ws_ply("SystemExit")
+# ws_ply("SystemHand")
+
 game = Game()
+ws_ply("SystemQuestion")
 game.start()
 quit(0)
 
