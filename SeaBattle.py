@@ -75,17 +75,7 @@ class BoardOutException(SBException):
         self.errmsg = "Sea Battle exception:" + errmsg
 
 
-class DotIsBusy(SBException):
-    def __init__(self, errmsg=''):
-        self.errmsg = "Sea Battle exception:" + errmsg
-
-
 class DotAllReadyPoked(SBException):
-    def __init__(self, errmsg=''):
-        self.errmsg = "Sea Battle exception:" + errmsg
-
-
-class DotTooClose(SBException):
     def __init__(self, errmsg=''):
         self.errmsg = "Sea Battle exception:" + errmsg
 
@@ -165,7 +155,7 @@ class Board:
             ' 8 █ █ ◦ █ ▚ █ ◦ ◦ ◦ ◦ ',
             ' 9 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ',
             '10 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ',
-            ' Живых 100.0 %         '
+            ' Живых 100 %           '
         ]
         self.battle_field: List[Dot] = []
         for y in range(self.battle_field_size):
@@ -191,8 +181,6 @@ class Board:
         dx, dy = direction(s_dir)
         if sp_x + s_size * dx > self.battle_field_size or sp_y + s_size * dy > self.battle_field_size:
             raise ShipNotFitted(f'Из точки [{sp_x + 1},{sp_y + 1}] корабль расположить не получается!')
-        # print('Поле', self.battle_title, end=' ')
-        # print(f'Запрос на корабль: X={sp_x + 1:2d} Y={sp_y + 1:2d}', S_DIR_STR[s_dir], f'размер={s_size:1d}')
         sdl = []
         for i in range(s_size):
             d_dot = self.battle_field[sp_x + i * dx + (sp_y + i * dy) * self.battle_field_size]
@@ -214,7 +202,6 @@ class Board:
         for sc in sdl:  # прорисуем корабль
             if sc_0 == 0:
                 sc.status = SHIP + (len(sdl) << 4)  # в первую точку корабля добавляем его размер
-                # print(f'Точка [{sc_0}] ({sc.x + 1},{sc.y + 1}) статус={bin(sc.status)} ')
             else:
                 sc.status = SHIP
             sc_0 += 1
@@ -236,19 +223,13 @@ class Board:
             else:
                 dt = self.battle_field[xc + yc * self.battle_field_size]
                 d_c_l.append(dt)
-                # print('Поле', self.battle_title,'DotXY=', Dot.get_xy(dt), 'DotStatus=', Dot.get_status(dt))
             return
         
         size = len(ship_cells)
-        
-        # print("Координаты точек корабля = ", end='')  # для настойки алгоритма
-        # for sc in ship_cells:
-        #     print(Dot.get_xy(sc), '=', Dot.get_status(sc), IN_BATTLE_FIELD[sc in self.battle_field], end=' ')
         shp_dir = 0  # False - горизонтально по умолчанию для одноклеточных кораблей
         if size > 1:
             sc = iter(ship_cells)  # установление по факту ориентации корабля для 2-х и более клеточных моделей
             shp_dir = get_dir(next(sc), next(sc))  # False - горизонтально True - вертикально
-        # print(', расположен', S_DIR_STR[shp_dir], ', размер =', size, end='\n')
         d_c_l = []
         for sc in ship_cells:  # формирование списка точек контура вокруг корабля в рамках игрового поля
             x_c, y_c = Dot.get_xy(sc)
@@ -374,7 +355,7 @@ class AI(Player):
             if i.status & (FIRE + C_DS) == 0:
                 dum.append(i)
         if len(dum) < 1:
-            raise BoardOutException("Нет места для выстрела!!!")
+            raise BoardOutException("Удивительно, НО НЕТ места для выстрела!!!")
         d_ind = randint(0, len(dum))  # выбор точки для выстрела в поле врага
         d = self.enemy_board.battle_field[d_ind]
         print(f" удар в точку: {d.x + 1} {d.y + 1}")
@@ -387,7 +368,7 @@ class User(Player):
         key_count = 0
         while True:
             key_count += 1
-            if key_count > 6:
+            if key_count > 3:
                 game.greetings()
                 pause(3)
                 game.screen_update(game.bf, game.uf, "L")
@@ -447,7 +428,6 @@ class Game:
         self.nemo = User(self.uf, self.bf)
 
     def random_board(self, bd):
-        # print('\nРасстановка кораблей на поле', bd.battle_title)
         while True:
             bd.board_reset()
             ship_type = [
@@ -470,27 +450,20 @@ class Game:
                             bd_set_d = 1
                         else:
                             bd_set_d = 0
-                        # bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
                         try:
                             bd.add_ship(bd_set_x, bd_set_y, bd_set_d, st)
                             bd.life_count += st  # добавляем клетки в "жизни" кораблей
                             bd.life_rest += st   # добавляем клетки в "жизни" кораблей
-                            # bd.out_raw()
-                            # print('Good=', bd_set)
                             break  # корабль встал удачно, берем следующий, если есть
                         except ShipNotFitted:
-                            # bd.out_raw()
-                            # print(' Bad=', bd_set)
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
-                            pew('vibra.wav')
+                            pew('vibra.wav')  # трепещем от сброса игрового поля
                             break
                     if not att1:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
                 if att1:
-                    # print('Поле сформировано за', steps, 'шагов.')
-                    pass
                     return  # если цикл по кораблям закончился традиционно - выходим, все они установлены
                 pass  # нет, цикл еще с перспективой - берем следующий корабль на размещение
             pass  # сюда попадают при необходимости сбросить поле
@@ -521,6 +494,7 @@ class Game:
             return
         
         def l_out():  # вывод левого игрового поля
+            print()
             for i in range(bf.battle_field_size + 2):
                 s_l = str(bf.out_buf[i])
                 s_lr = s_l[:(3 + 2 * bf.battle_field_size)]
@@ -531,6 +505,7 @@ class Game:
             return
         
         def r_out():  # вывод правого игрового поля
+            print()
             for i in range(uf.battle_field_size + 2):
                 s_r = str(uf.out_buf[i])
                 s_lr = s_r[:(3 + 2 * uf.battle_field_size)]
@@ -546,7 +521,7 @@ class Game:
             r_out()
         elif position == 'LR' or position == 'RL':
             l_r_out()
-        else:
+        else:  # вывод для отладки
             Board.out_raw(uf)
             Board.out_raw(bf)
         return
@@ -565,14 +540,14 @@ class Game:
         print("* данных приведет к установке размера поля 6х6.      *")
         print("******************************************************")
         try:
-            user_ufs = int(input('Введите размер вашего поля боя:'))
+            user_ufs = int(input('Введите размер ВАШЕГО поля боя:'))
         except ValueError:
             user_ufs = 6
         if 6 < user_ufs > 10:
             user_ufs = 6
         self.uf.battle_field_size = user_ufs
         try:
-            user_bfs = int(input('Введите  размер поля боя  бота:'))
+            user_bfs = int(input('Введите размер  поля боя  бота:'))
         except ValueError:
             user_bfs = 6
         if 6 < user_bfs > 10:
