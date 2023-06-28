@@ -169,7 +169,8 @@ class Board:
             ' 7 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ █ ',
             ' 8 █ █ ◦ █ ▚ █ ◦ ◦ ◦ ◦ ',
             ' 9 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ',
-            '10 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ '
+            '10 ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ◦ ',
+            ' Живых 100.0 %         '
         ]
         self.battle_field: List[Dot] = []
         for y in range(self.battle_field_size):
@@ -271,7 +272,7 @@ class Board:
             print(chr(0x00A6), end=' ')
             for a in range(self.battle_field_size):
                 d = self.battle_field[a + b * self.battle_field_size]
-                print(d.status, end=' ')
+                print(d.status & 0x7, end=' ')
             print()
         print(chr(0x21d3) + '-' * (self.battle_field_size * 2 - 0))
         print('Y')
@@ -281,9 +282,12 @@ class Board:
         self.out(x, y)  # координаты в пределах игрового поля?
         dt = self.battle_field[x + y * self.battle_field_size]  # считываем из поля боя клетку
         if self.dot_with_flags(x, y, FIRE+SHIP):
+            pew('error1.wav')
             raise DotAllReadyPoked('По кораблю уже стреляли!')
         if self.dot_with_flags(x, y, FIRE):
+            pew('error1.wav')
             raise DotAllReadyPoked('Сюда уже стреляли!')
+        pew('shot.wav')
         if self.dot_with_flags(x, y, SHIP):  # попали в корабль
             dt.status = dt.status | FIRE  # отмечаем, что в клетке подбит корабль
             ship_pos_in_list = 0  # установка индекса на первый корабль в списке
@@ -291,26 +295,26 @@ class Board:
             ddt_0_dot = dt  # объявление переменной
             for c_ship in self.ships:
                 if dt in c_ship:
-                    print('Попадание в корабль [ ', ship_pos_in_list + 1, end=']')
-                    
-                    for c_ship_dot_pos in range(len(c_ship)):
-                        ddt = c_ship[c_ship_dot_pos]
-                        print('-{', ddt.x, ddt.y, ddt.status, end='}')
-                        
-                    ddt_0_dot = c_ship[0]
-                    ddt_0_life = (c_ship[0].status & 0xF0) >> 4
-                    print(' было клеток {', ddt_0_life, ' }')
-                    
-                    break  # заканчиваем перебор, корабль найден
+                    ddt_0_dot = c_ship[0]  # сохраняем точку - нос корабля-жертвы
+                    ddt_0_life = (c_ship[0].status & 0xF0) >> 4  # сохраняем число пока еще живых его клеток
+                    break  # заканчиваем перебор, корабль-жертва найден
                 ship_pos_in_list += 1
-            ddt_0_life -= 1  # уменьшаем число клеток корабля
-            ddt_0_life = ddt_0_life << 4
-            ddt_0_dot.status = (ddt_0_dot.status & 0x0F) + ddt_0_life
-            self.life_rest -= 1  # уменьшаем число "жизней" кораблей
-            print('Попадание в корабль [', ship_pos_in_list + 1, '] стало клеток {', ddt_0_life >> 4, '}', ddt_0_dot.status,
-                  self.life_count, self.life_rest, '}')
+            ddt_0_life -= 1  # уменьшаем число живых клеток корабля-жертвы
+            ddt_0_dot.status = (ddt_0_dot.status & 0x0F) + (ddt_0_life << 4)  # сохраняем оставшееся число живых клеток
+            self.life_rest -= 1  # уменьшаем число "жизней" всех кораблей
+            print('Попадание в корабль, он ', end='')
+            if ddt_0_life < 1:  # корабль полностью уничтожен
+                for cc in self.shape[ship_pos_in_list]:  # отметим его контуром
+                    cc.status = cc.status | C_DS
+                print('полностью уничтожен!')
+                pew('expl_ship.wav')
+            else:
+                print('подбит!')
+                pew('expl_ship.wav')
             return True
         dt.status = dt.status | FIRE  # отмечаем, что в клетку произведен выстрел
+        print('Мимо!')
+        pew('babax.wav')
         return False
     
     def dot_with_flags(self, xf, yf, flag):  # возвращает True если флаги по маске установлены
@@ -340,6 +344,13 @@ class Board:
                 s2 = s2[x_ind + 1:]
                 s0 = s1 + sig + s2
                 self.out_buf[y + 2] = s0
+                
+        s1 = self.out_buf[12]
+        s1 = s1[:7]
+        s2 = str(round(int(float(self.life_rest / self.life_count) * 100)))
+        s0 = s1 + s2 + ' %'
+        s0 = s0 + " " * (23 - len(s0))
+        self.out_buf[12] = s0
         return
     
     
@@ -355,12 +366,9 @@ class Player:
         while True:
             try:
                 xy_coord = self.ask()
-                # print('Выстрел в', xy_coord.x + 1, xy_coord.y + 1)
                 hit_ok = Board.shot(self.enemy_board, xy_coord.x, xy_coord.y)
                 return hit_ok
-            except BoardOutException as e:
-                print(e)
-            except DotAllReadyPoked as e:
+            except (BoardOutException, DotAllReadyPoked) as e:
                 print(e)
                 
         
@@ -372,18 +380,34 @@ class AI(Player):
                 dum.append(i)
         if len(dum) < 1:
             raise BoardOutException("Нет места для выстрела!!!")
-        
-        # выбор точки для выстрела в поле врага
-        d_ind = randint(0, len(dum))
+        d_ind = randint(0, len(dum))  # выбор точки для выстрела в поле врага
         d = self.enemy_board.battle_field[d_ind]
-        print(f"Удар в точку: {d.x + 1} {d.y + 1}")
+        print(f" удар в точку: {d.x + 1} {d.y + 1}")
         return d
 
 
 class User(Player):
     def ask(self):
+        key_count = 0
         while True:
+            key_count += 1
+            if key_count > 6:
+                game.greetings_1()
+                game.screen_update(game.bf, game.uf, "L")
+                key_count = 0
             xy = input("Введите X и Y через пробел: ").split()
+            if len(xy) == 1:
+                s = xy[0]
+                s = s.lower()
+                if s == 'debug':
+                    Board.out_raw(game.uf)
+                    Board.out_raw(game.bf)
+                if s == 'hack':
+                    game.bf.visible = not game.bf.visible
+                    game.bf.bat_fld_analyzer()
+                    game.screen_update(game.bf, game.uf, "LR")
+                if s == 'quit' or s == 'q' or s == 'exit':
+                    quit(0)
             if len(xy) != 2:
                 print("Введите только 2 координаты!")
                 continue
@@ -395,18 +419,17 @@ class User(Player):
             return Dot(x - 1, y - 1)
 
 
-
-
 class Game:
     def __init__(self):
         self.bf = Board(battle_field=None, out_buf=None,
-                        ships=None, shape=None, visible=True, life_rest=None, life_count=None,
+                        ships=None, shape=None, visible=False, life_rest=None, life_count=None,
                         battle_title='AI bot', battle_field_size=6)
         self.uf = Board(battle_field=None, out_buf=None,
                         ships=None, shape=None, visible=True, life_rest=None, life_count=None,
                         battle_title='User', battle_field_size=10)
         self.random_board(self.uf)
         self.random_board(self.bf)
+        self.bf.visible = False  # корабли компьютера не видны
         self.guru = AI(self.bf, self.uf)
         self.nemo = User(self.uf, self.bf)
 
@@ -434,7 +457,7 @@ class Game:
                             bd_set_d = 1
                         else:
                             bd_set_d = 0
-                        bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
+                        # bd_set = [bd_set_x, bd_set_y, bd_set_d, st]
                         try:
                             bd.add_ship(bd_set_x, bd_set_y, bd_set_d, st)
                             bd.life_count += st  # добавляем клетки в "жизни" кораблей
@@ -448,7 +471,7 @@ class Game:
                             pass  # корабль не вписался в поле
                         if steps > 2000:  # смотрим, есть ли еще лимит попыток размещения
                             att1 = False  # лимит попыток исчерпан - сброс игрового поля как тупикового
-                            ws_ply('SystemHand')  # ============================================
+                            pew('vibra.wav')
                             break
                     if not att1:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
@@ -477,7 +500,10 @@ class Game:
                     s_r = str(uf.out_buf[i])
                 s_lr = s_l[:(3 + 2 * bf.battle_field_size)] + '          ' + s_r[:(3 + 2 * uf.battle_field_size)]
                 print(s_lr)
-            print()
+            s_l = str(bf.out_buf[12])
+            s_r = str(uf.out_buf[12])
+            s_lr = s_l[:(3 + 2 * bf.battle_field_size)] + '          ' + s_r[:(3 + 2 * uf.battle_field_size)]
+            print(s_lr)
             return
         
         def l_out():  # вывод левого игрового поля
@@ -509,6 +535,9 @@ class Game:
     
     def greetings(self):
         print("Hello!!! This is Sea Battle.")
+    
+    def greetings_1(self):
+        print("Greetings_1")
         
     def loop(self):
         curr_move = 0  # ноль - игрок, 1 - компьютер
@@ -516,12 +545,20 @@ class Game:
             self.bf.bat_fld_analyzer()
             self.uf.bat_fld_analyzer()
             self.screen_update(self.bf, self.uf, "LR")
+            if self.bf.life_rest == 0:
+                print('\n ВЫ ВЫИГРАЛИ - ПОЗДРАВЛЯЕМ !!!')
+                pew("the-end-sound-effect.wav")
+                quit(0)
+            if self.bf.life_rest == 0:
+                print('\n ВАШ ФЛОТ РАЗБИТ !!!')
+                pew("THE-END.wav")
+                quit(0)
             if curr_move % 2 == 0:
-                print("Ваш выстрел.")
+                print("\nВаш выстрел.", end=' ')
                 repeat = self.nemo.move()
             else:
-                print("Стреляет компьютер.", end='')
-                pause(3)
+                print("\nСтреляет компьютер ", end='')
+                pause(1)
                 repeat = self.guru.move()
             if repeat:
                 curr_move -= 1
@@ -530,35 +567,11 @@ class Game:
     
     def start(self):
         self.greetings()
-        pew()
+        self.greetings_1()
+        ws_ply("SystemExclamation")
         self.loop()
       
 
-# ws_ply("SystemAsterisk")
-# ws_ply("SystemExclamation")
-# ws_ply("SystemExit")
-# ws_ply("SystemHand")
-
 game = Game()
-ws_ply("SystemQuestion")
 game.start()
-quit(0)
-
-game.bf.visible = False
-game.screen_update(game.bf, game.uf, "RL")
-game.bf.board_reset()
-game.bf.bat_fld_analyzer()
-game.screen_update(game.bf, game.uf, "RL")
-quit(0)
-
-print("=" * 80)
-game.bf.add_ship(6, 4, 1, 4)
-game.bf.bat_fld_analyzer()
-game.screen_update(game.bf, game.uf, "L")
-game.bf.add_ship(1, 6, 0, 4)
-game.bf.bat_fld_analyzer()
-game.screen_update(game.bf, game.uf, "L")
-
-game.screen_update(game.bf, game.uf, "==")
-print("Доброго вечера, мы со Skill Factory.")
 quit(0)
