@@ -34,23 +34,18 @@ def get_dir(d1, d2):
     return Dot.get_x(d1) == Dot.get_x(d2)
 
 
+sound_on = True  # игра со звуком или без
+
+
 def pew(snd='pew.wav'):
     try:
-        winsound.PlaySound(snd, winsound.SND_FILENAME)
+        if sound_on:
+            winsound.PlaySound(snd, winsound.SND_FILENAME)
     except NameError:
         pass
     else:
         return
     
-    
-def ws_ply(snd):
-    try:
-        winsound.PlaySound(snd, winsound.SND_ALIAS)
-    except (RuntimeError, NameError):
-        pass
-    else:
-        return
-
 
 def pause(t):
     ps = 0
@@ -314,7 +309,7 @@ class Board:
             return True
         dt.status = dt.status | FIRE  # отмечаем, что в клетку произведен выстрел
         print('Мимо!')
-        pew('babax.wav')
+        pew('misfire.wav')
         return False
     
     def dot_with_flags(self, xf, yf, flag):  # возвращает True если флаги по маске установлены
@@ -388,11 +383,12 @@ class AI(Player):
 
 class User(Player):
     def ask(self):
+        global sound_on
         key_count = 0
         while True:
             key_count += 1
             if key_count > 6:
-                game.greetings_1()
+                game.greetings()
                 game.screen_update(game.bf, game.uf, "L")
                 key_count = 0
             xy = input("Введите X и Y через пробел: ").split()
@@ -402,11 +398,14 @@ class User(Player):
                 if s == 'debug':
                     Board.out_raw(game.uf)
                     Board.out_raw(game.bf)
-                if s == 'hack':
+                elif s == 'hack':
                     game.bf.visible = not game.bf.visible
                     game.bf.bat_fld_analyzer()
                     game.screen_update(game.bf, game.uf, "LR")
-                if s == 'quit' or s == 'q' or s == 'exit':
+                elif s == 's' or s == 'sound':
+                    sound_on = not sound_on
+                    pew()
+                elif s == 'quit' or s == 'q' or s == 'exit':
                     quit(0)
             if len(xy) != 2:
                 print("Введите только 2 координаты!")
@@ -416,6 +415,11 @@ class User(Player):
                 print(" Вводите числа! ")
                 continue
             x, y = int(x), int(y)
+            if game.bf.battle_field_size == 10:
+                if x == 0:
+                    x = 10
+                if y == 0:
+                    y = 10
             return Dot(x - 1, y - 1)
 
 
@@ -427,6 +431,7 @@ class Game:
         self.uf = Board(battle_field=None, out_buf=None,
                         ships=None, shape=None, visible=True, life_rest=None, life_count=None,
                         battle_title='User', battle_field_size=10)
+        self.greetings_board()
         self.random_board(self.uf)
         self.random_board(self.bf)
         self.bf.visible = False  # корабли компьютера не видны
@@ -477,7 +482,7 @@ class Game:
                         break  # Выходим из цикла по размещению кораблей, т.к. нужно сбросить поле
                 if att1:
                     # print('Поле сформировано за', steps, 'шагов.')
-                    
+                    pass
                     return  # если цикл по кораблям закончился традиционно - выходим, все они установлены
                 pass  # нет, цикл еще с перспективой - берем следующий корабль на размещение
             pass  # сюда попадают при необходимости сбросить поле
@@ -511,7 +516,9 @@ class Game:
                 s_l = str(bf.out_buf[i])
                 s_lr = s_l[:(3 + 2 * bf.battle_field_size)]
                 print(s_lr)
-            print()
+            s_l = str(bf.out_buf[12])
+            s_lr = s_l[:(3 + 2 * bf.battle_field_size)]
+            print(s_lr)
             return
         
         def r_out():  # вывод правого игрового поля
@@ -519,7 +526,9 @@ class Game:
                 s_r = str(uf.out_buf[i])
                 s_lr = s_r[:(3 + 2 * uf.battle_field_size)]
                 print(s_lr)
-            print()
+            s_r = str(uf.out_buf[12])
+            s_lr = s_r[:(3 + 2 * uf.battle_field_size)]
+            print(s_lr)
             return
         
         if position == 'L':
@@ -533,11 +542,50 @@ class Game:
             Board.out_raw(uf)
         return
     
+    def greetings_board(self):
+        print("******************************************************")
+        print("*                Игра Морской бой                    *")
+        print("* В современных реалиях трудно представить ситуацию, *")
+        print("* когда силы равны на поле боя.                      *")
+        print("* В данной игре вы можете выбрать размер поля боя    *")
+        print("* от 6 до 10 клеток по вертикали и горизонтали       *")
+        print("* для себя и для бота.                               *")
+        print("* Размеры поля боя игроков могут отличаться          *")
+        print("* друг от друга.                                     *")
+        print("* Нажатие на клавишу 'Ввод' или ввод неправильных    *")
+        print("* данных приведет к установке размера поля 6х6.      *")
+        print("******************************************************")
+        try:
+            user_ufs = int(input('Введите размер вашего поля боя:'))
+        except ValueError:
+            user_ufs = 6
+        if 6 < user_ufs > 10:
+            user_ufs = 6
+        self.uf.battle_field_size = user_ufs
+        try:
+            user_bfs = int(input('Введите размер вашего поля боя:'))
+        except ValueError:
+            user_bfs = 6
+        if 6 < user_bfs > 10:
+            user_bfs = 6
+        self.bf.battle_field_size = user_bfs
+        
     def greetings(self):
-        print("Hello!!! This is Sea Battle.")
-    
-    def greetings_1(self):
-        print("Greetings_1")
+        print("******************************************************")
+        print("* Для стрельбы нужно вводить через пробел координаты	*")
+        print("* точки по горизонтали (X) и по вертикали (Y)		*")
+        print("* Отсчет ведется от левого верхнего угла игрового 	*")
+        print("* поля вправо (X) и вниз (Y)							*")
+        print("* При размере игрового поля бота 10х10 можно вводить	*")
+        print("* вместо 10 цифру 0, ошибки не будет.				*")
+        print("* Символ ▚-подбитый корабль или его часть			*")
+        print("* Символ █-целый корабль или его часть				*")
+        print("* Символ ░-контур вокруг корабля для удобства		*")
+        print("* Символ ◦-пустая клетка, X-в эту клетку стреляли	*")
+        print("* При вводе (вместо координат) латинским шрифтом:	*")
+        print("*  's' или 'sound' можно включать и выключать звук	*")
+        print("*  'q' или 'quit' - выйти из игры					*")
+        print("******************************************************")
         
     def loop(self):
         curr_move = 0  # ноль - игрок, 1 - компьютер
@@ -567,8 +615,7 @@ class Game:
     
     def start(self):
         self.greetings()
-        self.greetings_1()
-        ws_ply("SystemExclamation")
+        pew("windows-exclamation.wav")
         self.loop()
       
 
